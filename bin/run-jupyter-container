@@ -1,0 +1,28 @@
+#!/bin/bash
+
+IMAGE="jefersondaniel/jupyter-nvidia-notebook"
+PORT="8888"
+COMMAND="start-notebook.sh --NotebookApp.token='' --ip='0.0.0.0'"
+NAME=$(basename $PWD)_$(echo -n $PWD | md5sum | cut -d' ' -f1)
+EXIST=0
+GPUS=""
+
+if docker inspect $NAME > /dev/null 2>&1 ; then
+	EXIST=1
+fi
+
+if [[ $* == *--recreate* ]] && [ "$EXIST" == "1" ] ; then
+	docker rm $NAME
+	EXIST=0
+fi
+
+if [ "$EXIST" == "1" ] ; then
+    docker start -ai $NAME
+else
+	if [ -x "$(command -v nvcc)" ] ; then
+		echo Enabling GPU
+		GPUS="--gpus all"
+	fi
+
+    docker run $GPUS --name $NAME -it -e 'JUPYTER_ENABLE_LAB=yes' -p $PORT:8888 -v $PWD:/home/jovyan/work $IMAGE $COMMAND
+fi
